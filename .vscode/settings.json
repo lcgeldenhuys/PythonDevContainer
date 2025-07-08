@@ -1,0 +1,47 @@
+{
+    // General editor settings applicable to all file types
+    "editor.rulers": [88],
+    "editor.formatOnSave": true, // Apply to all files if no language-specific override
+    "editor.fontSize": 14,
+    "editor.minimap.enabled": false,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+
+    // Speller words
+    "cSpell.words": [
+        "litellm",
+        "openai",
+        "dotenv",
+        "venv",
+        "flake8",
+        "devcontainers"
+    ],
+
+    // Python-specific settings
+    "[python]": {
+        // Formatter settings
+        "editor.defaultFormatter": "ms-python.black-formatter", // Explicitly set Black Formatter for Python
+        "editor.formatOnSave": true, // Ensure format on save is active for Python files
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit" // Organize imports on save for Python
+        },
+        "python.formatting.provider": "black", // Tell the Python extension to use Black
+        "python.formatting.blackArgs": [ // Optional: Black specific arguments
+            "--line-length=88"
+        ],
+
+        // Linter settings
+        "flake8.enabled": true,
+        "flake8.args": ["--max-line-length=88"],
+        "pylint.enabled": true,
+
+        // Interpreter and analysis settings
+        "python.defaultInterpreterPath": "./.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "python.analysis.typeCheckingMode": "basic",
+
+        // Testing settings
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false
+    }
+}
