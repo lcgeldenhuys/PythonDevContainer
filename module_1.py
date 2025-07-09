@@ -3,6 +3,7 @@ from typing import List, Dict
 from dotenv import load_dotenv
 from openai import OpenAI
 import os
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,114 +30,157 @@ def generate_response(messages: List[Dict]) -> str:
     return content
 
 
-def extract_code_block(response: str) -> str:
+def extract_markdown_block(response: str, block_type: str = "json") -> str:
     """Extract code block from response"""
+
     if "```" not in response:
         return response
 
     code_block = response.split("```")[1].strip()
-    # Check for "python" at the start and remove
 
-    if code_block.startswith("python"):
-        code_block = code_block[6:]
+    if code_block.startswith(block_type):
+        code_block = code_block[len(block_type) :].strip()
 
     return code_block
 
 
-def develop_custom_function():
-    # Get user input for function description
-    print("\nWhat kind of function would you like to create?")
-    print("Example: 'A function that calculates the factorial of a number'")
-    print("Your description: ", end="")
-    function_description = input().strip()
-
-    # Initialize conversation with system prompt
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a Python expert helping to develop a function.",
+def parse_action(response: str) -> Dict:
+    """Parse the LLM response into a structured action dictionary."""
+    try:
+        response = extract_markdown_block(response, "action")
+        response_json = json.loads(response)
+        if "tool_name" in response_json and "args" in response_json:
+            return response_json
+        else:
+            return {
+                "tool_name": "error",
+                "args": {"message": "You must respond with a JSON tool invocation."},
+            }
+    except json.JSONDecodeError:
+        return {
+            "tool_name": "error",
+            "args": {
+                "message": "Invalid JSON response. Respond with a JSON tool invocation."
+            },
         }
-    ]
 
-    # First prompt - Basic function
-    messages.append(
-        {
-            "role": "user",
-            "content": (
-                f"Write a Python function that {function_description}. "
-                "Output the function in a ```python code block```."
-            ),
+
+def list_files() -> List[str]:
+    """List files in the current directory."""
+    return os.listdir(".")
+
+
+def read_file(file_name: str) -> str:
+    """Read a file's contents."""
+    try:
+        with open(file_name, "r") as file:
+            return file.read()
+    except FileNotFoundError:
+        return f"Error: {file_name} not found."
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+# Define system instructions (Agent Rules)
+agent_rules = [
+    {
+        "role": "system",
+        "content": """
+You are an AI agent that can perform tasks by using available tools.
+
+Available tools:
+
+```json
+{
+    "list_files": {
+        "description": "Lists all files in the current directory.",
+        "parameters": {}
+    },
+    "read_file": {
+        "description": "Reads the content of a file.",
+        "parameters": {
+            "file_name": {
+                "type": "string",
+                "description": "The name of the file to read."
+            }
         }
-    )
-    initial_function = generate_response(messages)
-
-    # Parse the response to get the function code
-    initial_function = extract_code_block(initial_function)
-
-    print("\n=== Initial Function ===")
-    print(initial_function)
-
-    # Add assistant's response to conversation
-    # Notice that I am purposely causing it to forget its commentary and just see the
-    # code so that it appears that is always outputting just code.
-    messages.append(
-        {"role": "assistant", "content": f"```python\n\n{initial_function}\n\n```"}
-    )
-
-    # Second prompt - Add documentation
-    messages.append(
-        {
-            "role": "user",
-            "content": (
-                "Add comprehensive documentation to this function, including "
-                "description, parameters, return value, examples, and edge cases."
-                "Output the function in a ```python code block```."
-            ),
+    },
+    "terminate": {
+        "description": "Ends the agent loop and provides a summary of the task.",
+        "parameters": {
+            "message": {
+                "type": "string",
+                "description": "Summary message to return to the user."
+            }
         }
+    }
+}
+```
+
+If a user asks about files, documents, or content, first list the files before reading them.
+
+When you are done, terminate the conversation by using the "terminate" tool and I will provide the results to the user.
+
+Important!!! Every response MUST have an action.
+You must ALWAYS respond in this format:
+
+<Stop and think step by step. Parameters map to args. Insert a rich description of your step by step thoughts here.>
+
+```action
+{
+    "tool_name": "insert tool_name",
+    "args": {...fill in any required arguments here...}
+}
+```""",
+    }
+]
+
+# Initialize agent parameters
+iterations = 0
+max_iterations = 10
+
+user_task = input("What would you like me to do? ")
+
+memory = [{"role": "user", "content": user_task}]
+
+# The Agent Loop
+while iterations < max_iterations:
+    # 1. Construct prompt: Combine agent rules with memory
+    prompt = agent_rules + memory
+
+    # 2. Generate response from LLM
+    print("Agent thinking...")
+    response = generate_response(prompt)
+    print(f"Agent response: {response}")
+
+    # 3. Parse response to determine action
+    action = parse_action(response)
+    result = "Action executed"
+
+    if action["tool_name"] == "list_files":
+        result = {"result": list_files()}
+    elif action["tool_name"] == "read_file":
+        result = {"result": read_file(action["args"]["file_name"])}
+    elif action["tool_name"] == "error":
+        result = {"error": action["args"]["message"]}
+    elif action["tool_name"] == "terminate":
+        print(action["args"]["message"])
+        break
+    else:
+        result = {"error": "Unknown action: " + action["tool_name"]}
+
+    print(f"Action result: {result}")
+
+    # 5. Update memory with response and results
+    memory.extend(
+        [
+            {"role": "assistant", "content": response},
+            {"role": "user", "content": json.dumps(result)},
+        ]
     )
-    documented_function = generate_response(messages)
-    documented_function = extract_code_block(documented_function)
-    print("\n=== Documented Function ===")
-    print(documented_function)
 
-    # Add documentation response to conversation
-    messages.append(
-        {"role": "assistant", "content": f"```python\n\n{documented_function}\n\n```"}
-    )
+    # 6. Check termination condition
+    if action["tool_name"] == "terminate":
+        break
 
-    # Third prompt - Add test cases
-    messages.append(
-        {
-            "role": "user",
-            "content": (
-                "Add unittest test cases for this function, including tests for basic "
-                "functionality, edge cases, error cases, and various input scenarios."
-                "Output the code in a ```python code block```."
-            ),
-        }
-    )
-    test_cases = generate_response(messages)
-
-    # We will likely run into random problems here depending on if it outputs JUST the
-    # test cases or the test cases AND the code. This is the type of issue we will learn
-    # to work through with agents in the course.
-    test_cases = extract_code_block(test_cases)
-    print("\n=== Test Cases ===")
-    print(test_cases)
-
-    # Generate filename from function description
-    filename = function_description.lower()
-    filename = "".join(c for c in filename if c.isalnum() or c.isspace())
-    filename = filename.replace(" ", "_")[:30] + ".py"
-
-    # Save final version
-    with open(filename, "w") as f:
-        f.write(documented_function + "\n\n" + test_cases)
-
-    return documented_function, test_cases, filename
-
-
-if __name__ == "__main__":
-
-    function_code, tests, filename = develop_custom_function()
-    print(f"\nFinal code has been saved to {filename}")
+    iterations += 1
