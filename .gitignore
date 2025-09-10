@@ -27,3 +27,4 @@ Thumbs.db
 # Environment variables
 #.env                # Your local environment variables
 *.env
+Application
