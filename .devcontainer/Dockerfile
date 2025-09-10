@@ -52,7 +52,7 @@ ENV DEVCONTAINER=true
 RUN mkdir -p /workspace /home/vscode/.claude && \
   chown -R vscode:vscode /workspace /home/vscode/.claude
 
-WORKDIR /workspace
+WORKDIR /workspace/Application
 
 ARG GIT_DELTA_VERSION=0.18.2
 RUN ARCH=$(dpkg --print-architecture) && \

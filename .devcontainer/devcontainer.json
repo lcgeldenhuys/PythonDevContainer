@@ -13,33 +13,41 @@
 		}
 	},
 	"containerEnv": {
-	    "NODE_OPTIONS": "--max-old-space-size=4096",
+		"NODE_OPTIONS": "--max-old-space-size=4096",
 		"CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
 		"POWERLEVEL9K_DISABLE_GITSTATUS": "true"
 	},
 	"remoteUser": "vscode",
-	"workspaceFolder": "/workspace",
+	"workspaceFolder": "/workspace/Application",
 	"mounts": [
 		"source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
 		"source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
 		"source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
 	],
-	"runArgs": ["--cap-add=NET_ADMIN", "--cap-add=NET_RAW"],
-  	// Forward ports for web development
-  	"forwardPorts": [3000, 3001, 8000, 8080, 5173, 4200],
-  	// Auto-forward ports (VS Code will detect and forward automatically)
-  	"portsAttributes": {
-    	"3000": {
-      		"label": "Next.js App",
-      		"onAutoForward": "notify"
-    	},
-    	"3001": {
-      		"label": "Next.js Dev Server",
-      		"onAutoForward": "notify"
-    	}
-  	},
-	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "python -m venv .venv && .venv/bin/pip install --upgrade pip && if [ -f requirements.txt ]; then .venv/bin/pip install -r requirements.txt; fi",
+	"runArgs": [
+		"--cap-add=NET_ADMIN",
+		"--cap-add=NET_RAW"
+	],
+	// Forward ports for web development
+	"forwardPorts": [
+		3000,
+		3001,
+		8000,
+		8080,
+		5173,
+		4200
+	],
+	// Auto-forward ports (VS Code will detect and forward automatically)
+	"portsAttributes": {
+		"3000": {
+			"label": "Next.js App",
+			"onAutoForward": "notify"
+		},
+		"3001": {
+			"label": "Next.js Dev Server",
+			"onAutoForward": "notify"
+		}
+	},
 	// Configure tool-specific properties.
 	"customizations": {
 		// Configure properties specific to VS Code.
@@ -63,7 +71,9 @@
 				}
 			}
 		}
-	}
+	},
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "python -m venv .venv && .venv/bin/pip install --upgrade pip && if [ -f requirements.txt ]; then .venv/bin/pip install -r requirements.txt; fi"
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
 }
